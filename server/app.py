@@ -23,12 +23,48 @@ def bakeries():
     bakeries = [bakery.to_dict() for bakery in Bakery.query.all()]
     return make_response(  bakeries,   200  )
 
-@app.route('/bakeries/<int:id>')
-def bakery_by_id(id):
+@app.route('/baked_goods', methods=['POST'])
+def  add_baked_good():
+    new_baked_good = BakedGood(
+        name = request.form.get('name'),
+        price = request.form.get('price'),
+        bakery_id = request.form.get('bakery_id')
+    )
+    try:
+        db.session.add(new_baked_good)
+        db.session.commit()
+        new_baked_good_dict = new_baked_good.to_dict()
+        response = jsonify(new_baked_good_dict), 201
+        return response
+    
+    except Exception as e:
+        response = jsonify({"error": str(e)}), 400
+        return response
+    
+@app.route('/baked_goods/<int:id>', methods=['DELETE'])
+def  delete_baked_good(id):
+    baked_good = BakedGood.query.filter_by(id=id).first()
+    db.session.delete(baked_good)
+    db.session.commit()
+    return "", 204
 
+@app.route('/bakeries/<int:id>',methods=['PATCH'])
+def bakery_by_id(id):
     bakery = Bakery.query.filter_by(id=id).first()
-    bakery_serialized = bakery.to_dict()
-    return make_response ( bakery_serialized, 200  )
+    if not bakery:
+        return jsonify({'error': f"No bakery with ID {id} exists."}), 404
+
+    for attr in request.form:
+        setattr(bakery, attr, request.form.get(attr))
+
+    try:
+        db.session.commit()
+        bakery_serialized = bakery.to_dict()
+        return jsonify(bakery_serialized), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 400
+
 
 @app.route('/baked_goods/by_price')
 def baked_goods_by_price():
